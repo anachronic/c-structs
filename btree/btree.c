@@ -3,7 +3,6 @@
 #include <stdio.h>
 
 #include "btree.h"
-#include "parametros.h"
 
 void btree_nodo_new(struct btree_nodo *btree) {
   btree->num_elems = 0;
