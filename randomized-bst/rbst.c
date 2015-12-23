@@ -4,9 +4,12 @@
 
 #include "rbst.h"
 
+static int intrand(int low, int high){
+  if(high-low <= 0) return 0;
+  return (rand()%(high-low)) + low;
+}
 
-void rbst_new(rbst *r)
-{
+void rbst_new(rbst *r){
   r->root = NULL;
 }
 
@@ -35,32 +38,6 @@ static void _fixsize(struct rbst_node *node){
   node->size = _nodesize(node->left) + _nodesize(node->right) + 1;
 }
 
-// We're gonna use splay tree notation, where zig is a clockwise rotation
-// and zag is counterclockwise rotation. Its kind of a no-brainer, but you
-// can read about it @ http://kukuruku.co/hub/cpp/randomized-binary-search-trees
-static struct rbst_node *_zig(struct rbst_node *node){
-  struct rbst_node *new_root = node->left;
-
-  if(new_root == NULL) return node;
-  node->left = new_root->right;
-  new_root->right = node;
-  new_root->size = node->size;
-
-  _fixsize(node);
-  return new_root;
-}
-
-static struct rbst_node *_zag(struct rbst_node *node){
-  struct rbst_node *new_root = node->right;
-
-  node->right = new_root->left;
-  new_root->left = node;
-  new_root->size = node->size;
-
-  _fixsize(node);
-  return new_root;
-}
-
 static struct rbst_node *_create_node(const char *key, void *val, int valsize){
   struct rbst_node *n = malloc(sizeof(struct rbst_node));
   n->left = NULL;
@@ -70,21 +47,6 @@ static struct rbst_node *_create_node(const char *key, void *val, int valsize){
 
   entry_new(n->e, key, val, valsize);
   return n;
-}
-
-static struct rbst_node *_bst_insert(struct rbst_node *node, const char *key, void *val, int valsize){
-  if (node == NULL) return _create_node(key, val, valsize);
-
-  int cmp = strcmp(key, node->e->key);
-  if(cmp == 0){
-    entry_replace_val(node->e, val, valsize);
-    return node;
-  }
-
-  if(cmp < 0) node->left = _bst_insert(node->left, key, val, valsize);
-  else node->right = _bst_insert(node->right, key, val, valsize);
-
-  return node;
 }
 
 static void _split(struct rbst_node *node, const char *key, struct rbst_node **left, struct rbst_node **right){
@@ -103,11 +65,43 @@ static void _split(struct rbst_node *node, const char *key, struct rbst_node **l
     *left = node;
     _split(node->right, key, &((*right)->right), left);
   }
+
+  // that's it
 }
 
 static struct rbst_node *_insert_root(struct rbst_node *node, const char *key, void *val, int valsize){
-  if (node == NULL) return _create_node(key, val, valsize);
+  struct rbst_node *left;
+  struct rbst_node *right;
 
-  
+  _split(node, key, &left, &right);
+
+  struct rbst_node *new_root = _create_node(key, val, valsize);
+  new_root->left = left;
+  new_root->right = right;
+
+  return new_root;
 }
 
+static struct rbst_node *_rbst_insert(struct rbst_node *node, const char *key, void *val, int valsize){
+  int rnd = intrand(0, _nodesize(node));
+
+  if(rnd == _nodesize(node)) return _insert_root(node, key, val, valsize);
+
+  int cmp = strcmp(key, node->e->key);
+  if(cmp == 0){
+    entry_replace_val(node->e, val, valsize);
+    return node;
+  }
+
+  if(cmp < 0) node->left = _rbst_insert(node->left, key, val, valsize);
+  else node->right = _rbst_insert(node->right, key, val, valsize);
+
+  _fixsize(node);
+
+  return node;
+}
+
+
+void rbst_insert(rbst *t, const char *key, void *val, int valsize){
+  t->root = _rbst_insert(t->root, key, val, valsize);
+}
